@@ -14,12 +14,11 @@ argv   = require('optimist')
 
 NamespaceParser = require('./namespace_parser')
 batmanVersion = new NamespaceParser("#{argv.dir}/src/namespace.coffee").toString()
-console.log "--- GENERATING DOCS FOR BATMAN.JS #{batmanVersion} ---"
+console.log "--- GENERATING DOCS FOR BATMAN.JS v#{batmanVersion} ---"
 
 IdGenerator = require('./id_generator')
 Autolink = require('./autolink')
 TemplateWriter = require('./template_writer')
-
 
 class DocGenerator
   constructor: ->
@@ -120,6 +119,7 @@ class DocSection
   render: ->
     @html = @_parseTokens(@tokens, @options)
     @parseSubs()
+    TemplateWriter.write('api.html', "docs/api/v#{batmanVersion}/#{@id}.html", api_doc: yaml.dump(@toObject()))
     TemplateWriter.write('api.html', "docs/api/#{@id}.html", api_doc: yaml.dump(@toObject()))
 
   generateId: (title) -> new IdGenerator(title).toString()
