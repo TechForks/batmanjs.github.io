@@ -13,34 +13,13 @@ argv   = require('optimist')
            .argv
 
 NamespaceParser = require('./namespace_parser')
-namespaceFile = "#{argv.dir}/src/namespace.coffee"
-batmanVersion = new NamespaceParser(namespaceFile).toString()
+batmanVersion = new NamespaceParser("#{argv.dir}/src/namespace.coffee").toString()
 console.log "--- GENERATING DOCS FOR BATMAN.JS #{batmanVersion} ---"
 
 IdGenerator = require('./id_generator')
+Autolink = require('./autolink')
+TemplateWriter = require('./template_writer')
 
-class Autolink
-  @_undocumented: {}
-  @CANDIDATE_REGEXP = ///                   # "test" : http://rubular.com/r/aCUg3nq6fC
-              (?!\[)                        # not already a link (preceded by "[")
-              (`                            # Wrapped in `
-                Batman                      # starts with Batman
-                (?:\.[A-Z][A-Za-z]+)+       # Has one or more CamelCased words which are joined by .
-              `)
-              (?![\s\w]*\]\()               # not already a link (followed by " some topic](")
-            ///g                            # all of them
-  @insertLinks: (text="", generator) ->
-    newText = text.replace @CANDIDATE_REGEXP, (match, className, offset, string) =>
-      pageId = new IdGenerator(className.replace(/`/g, '')).toString()
-      if generator.hasId(pageId)
-        path = "/docs/api/" + pageId + ".html"
-        link = "[#{className}](#{path})"
-      else
-        if !@_undocumented[className]
-          @_undocumented[className] = true
-          console.warn "-----> No API Documentation for #{className}"
-        className
-    newText
 
 class DocGenerator
   constructor: ->
@@ -92,15 +71,8 @@ class DocGenerator
         groupings[groupingName] ?= []
         groupings[groupingName].push(entry)
 
-    @writeTemplate('config.yml', '_config.yml', api_index: yaml.dump(api_index: groupings))
+    TemplateWriter.write('config.yml', '_config.yml', api_index: yaml.dump(api_index: groupings))
 
-  writeTemplate: (template, destination, replacements) ->
-    content = fs.readFileSync("#{__dirname}/../_templates/#{template}").toString()
-    for key, replacement of replacements
-      content = content.replace("#= #{key}", replacement)
-
-    console.log("generating #{destination}")
-    fs.writeFileSync("#{__dirname}/../#{destination}", content)
 
 class DocSection
   constructor: ({@title, @tokens, @sub, @index, @generator}) ->
@@ -112,9 +84,7 @@ class DocSection
       "index"
     else
       @generateId(@title)
-
     @generator.registerId(@id) # to make sure we're linking real pages
-
 
   parseSubs: ->
     usedIds = {}
@@ -150,9 +120,9 @@ class DocSection
   render: ->
     @html = @_parseTokens(@tokens, @options)
     @parseSubs()
-    @generator.writeTemplate('api.html', "docs/api/#{@id}.html", api_doc: yaml.dump(@toObject()))
+    TemplateWriter.write('api.html', "docs/api/#{@id}.html", api_doc: yaml.dump(@toObject()))
 
-  generateId: (title) -> encodeURIComponent(title.replace(/\s/g, '_').toLowerCase())
+  generateId: (title) -> new IdGenerator(title).toString()
 
   _parseTokens: (tokens, options) ->
     tokens.forEach (t) =>
