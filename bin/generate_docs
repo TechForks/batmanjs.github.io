@@ -12,7 +12,15 @@ argv   = require('optimist')
            .demand('dir')
            .argv
 
+NamespaceParser = require('./namespace_parser')
+namespaceFile = "#{argv.dir}/src/namespace.coffee"
+batmanVersion = new NamespaceParser(namespaceFile).toString()
+console.log "--- GENERATING DOCS FOR BATMAN.JS #{batmanVersion} ---"
+
+IdGenerator = require('./id_generator')
+
 class Autolink
+  @_undocumented: {}
   @CANDIDATE_REGEXP = ///                   # "test" : http://rubular.com/r/aCUg3nq6fC
               (?!\[)                        # not already a link (preceded by "[")
               (`                            # Wrapped in `
@@ -21,12 +29,9 @@ class Autolink
               `)
               (?![\s\w]*\]\()               # not already a link (followed by " some topic](")
             ///g                            # all of them
-
-  @_undocumented: {}
-
   @insertLinks: (text="", generator) ->
     newText = text.replace @CANDIDATE_REGEXP, (match, className, offset, string) =>
-      pageId = DocSection::generateId(className.replace(/`/g, ''))
+      pageId = new IdGenerator(className.replace(/`/g, '')).toString()
       if generator.hasId(pageId)
         path = "/docs/api/" + pageId + ".html"
         link = "[#{className}](#{path})"
@@ -36,8 +41,6 @@ class Autolink
           console.warn "-----> No API Documentation for #{className}"
         className
     newText
-
-
 
 class DocGenerator
   constructor: ->
@@ -201,11 +204,9 @@ class HeadingParser
 
     {title, meta: {type, level, params, returnType}}
 
-
-files = glob.sync("#{argv.dir}/**/*.litcoffee")
-
+docFiles = glob.sync("#{argv.dir}/docs/**/*.litcoffee")
 docGenerator = new DocGenerator
-for f in files
+for f in docFiles
   fileContent = fs.readFileSync(f).toString()
   docGenerator.addContent(fileContent)
 
